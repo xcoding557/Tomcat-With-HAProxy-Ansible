@@ -1,0 +1,54 @@
+---
+- name: install haproxy package
+  become: yes
+  package:
+    name:  "{{ haproxy_package_name }}"
+    state: present
+
+- name: deploy haproxy.cfg file
+  become: yes
+  template:
+    src:  haproxy.cfg.j2
+    dest: "/etc/haproxy/haproxy.cfg"
+  notify:
+    - "restart haproxy service"
+
+- name: install rsyslog package
+  become: yes
+  package:
+    name:  rsyslog
+    state: present
+
+- name: configure haproxy.conf for rsyslog
+  become: yes
+  template:
+    src:  haproxy.conf.j2
+    dest: "/etc/rsyslog.d/haproxy.conf"
+  notify:
+    - "restart rsyslog service"
+    - "restart haproxy service"
+
+- name: Open haproxy monitoring port on the firewall
+  firewalld:
+    port: 9000/tcp
+    permanent: true
+    state: enabled
+    immediate: yes
+  when: ansible_service_mgr == "systemd"
+
+- name: Open haproxy frontend port on the firewall
+  firewalld:
+    port: 80/tcp
+    permanent: true
+    state: enabled
+    immediate: yes
+  when: ansible_service_mgr == "systemd"
+
+- name: start and enable haproxy service
+  become: yes
+  service:
+    name:    "{{ haproxy_package_name }}"
+    state:   started
+    enabled: true
+  notify:
+    - "restart haproxy service"
